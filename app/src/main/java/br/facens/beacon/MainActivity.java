@@ -1,6 +1,7 @@
 package br.facens.beacon;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,7 +16,7 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
@@ -61,7 +62,9 @@ public class MainActivity extends AppCompatActivity {
         if (beaconConsumer != null) {
             beaconConsumer.pararExecucao();
         }
-        mHandler.removeCallbacks(atualizacaoTela);
+        if (mHandler != null) {
+            mHandler.removeCallbacks(atualizacaoTela);
+        }
     }
 
     public void iniciarExecucao(View view) {
@@ -69,6 +72,10 @@ public class MainActivity extends AppCompatActivity {
         View v2 = findViewById(R.id.view_execucao);
         v1.setVisibility(View.GONE);
         v2.setVisibility(View.VISIBLE);
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (!mBluetoothAdapter.isEnabled()) {
+            mBluetoothAdapter.enable();
+        }
         beaconConsumer = new MeuBeaconConsumer(this);
         beaconConsumer.iniciarExecucao();
         mHandler = new Handler();
@@ -125,6 +132,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        if (beaconsRecentes.isEmpty()) {
+            return;
+        }
+        
         EditText et = findViewById(R.id.et_host_servidor);
         String host = et.getText().toString();
         et = findViewById(R.id.et_id_usuario);
@@ -133,22 +144,25 @@ public class MainActivity extends AppCompatActivity {
         RequestQueue queue = Volley.newRequestQueue(this);
         String url = "http://" + host + "/api/beacon/registrarBeaconsVistos";
 
-        JSONArray array = new JSONArray();
+
+        JSONObject rootObj = new JSONObject();
         try {
+            JSONArray array = new JSONArray();
             for (String s : beaconsRecentes) {
                 JSONObject obj = new JSONObject();
-                obj.put("usuario", idUsuario);
-                obj.put("beacon", s);
+                obj.put("uuid", s);
                 array.put(obj);
             }
+            rootObj.put("usuario", idUsuario);
+            rootObj.put("beacons", array);
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
-        JsonArrayRequest request = new JsonArrayRequest(Request.Method.POST, url, array,
-                new Response.Listener<JSONArray>() {
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.POST, url, rootObj,
+                new Response.Listener<JSONObject>() {
                     @Override
-                    public void onResponse(JSONArray response) {
+                    public void onResponse(JSONObject response) {
                         TextView mTextView = findViewById(R.id.tv_resposta_servidor);
                         mTextView.setText(response.toString());
                     }

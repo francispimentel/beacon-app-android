@@ -42,7 +42,7 @@
                     android:id="@+id/et_host_servidor"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="192.168.25.6:8080" />
+                    android:text="aqui-tem-engenharia.herokuapp.com" />
 
                 <Button
                     android:layout_width="wrap_content"
