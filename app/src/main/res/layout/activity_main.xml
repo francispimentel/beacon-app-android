@@ -6,25 +6,96 @@
     android:orientation="vertical"
     tools:context="br.facens.beacon.MainActivity">
 
-    <TextView
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:text="BEACONS DETECTADOS - TEMPO REAL" />
+        android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/tv_beacons_detectados"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:text="Nenhum" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:text="RESPOSTA DO SERVIDOR" />
+
+            <LinearLayout
+                android:id="@+id/view_configuracao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ID USUÁRIO:" />
+
+                <EditText
+                    android:id="@+id/et_id_usuario"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HOST REMOTO:" />
+
+                <EditText
+                    android:id="@+id/et_host_servidor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="192.168.25.6:8080" />
+
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="iniciarExecucao"
+                    android:text="Iniciar Execução" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/view_execucao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="BEACONS DETECTADOS - TEMPO REAL"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_beacons_detectados"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Nenhum beacon recente."
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="RESPOSTA DO SERVIDOR"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:onClick="consultarInformacoesServidor"
+                    android:text="Consultar Informações do Servidor" />
+
+                <TextView
+                    android:id="@+id/tv_resposta_servidor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </LinearLayout>

@@ -3,121 +3,184 @@ package br.facens.beacon;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.RemoteException;
+import android.os.Handler;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
 
-import org.altbeacon.beacon.Beacon;
-import org.altbeacon.beacon.BeaconConsumer;
-import org.altbeacon.beacon.BeaconManager;
-import org.altbeacon.beacon.BeaconParser;
-import org.altbeacon.beacon.MonitorNotifier;
-import org.altbeacon.beacon.RangeNotifier;
-import org.altbeacon.beacon.Region;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.Volley;
 
-import java.util.Collection;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-public class MainActivity extends AppCompatActivity implements BeaconConsumer {
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
-    protected static final String TAG = "MainActivity";
-    private String FAROL_LAYOUT = "m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24";
+public class MainActivity extends AppCompatActivity {
 
-    private BeaconManager beaconManager;
+    private MeuBeaconConsumer beaconConsumer;
+
+    private Handler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
-        if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 0);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 0);
         }
 
-        if (this.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
 
-        if (this.checkSelfPermission(Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH}, 2);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, 2);
         }
 
-        if (this.checkSelfPermission(Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_ADMIN}, 3);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_ADMIN}, 3);
         }
-
-
-        beaconManager = BeaconManager.getInstanceForApplication(this);
-
-        beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout(FAROL_LAYOUT));
-
-        beaconManager.bind(this);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        beaconManager.unbind(this);
+        if (beaconConsumer != null) {
+            beaconConsumer.pararExecucao();
+        }
+        mHandler.removeCallbacks(atualizacaoTela);
     }
 
-    @Override
-    public void onBeaconServiceConnect() {
-//        beaconManager.addMonitorNotifier(new MonitorNotifier() {
-//            @Override
-//            public void didEnterRegion(Region region) {
-//                Log.i(TAG, "I just saw an beacon for the first time!");
-//                try {
-//                    beaconManager.startRangingBeaconsInRegion(region);
-//                } catch (RemoteException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//
-//            @Override
-//            public void didExitRegion(Region region) {
-//                Log.i(TAG, "I no longer see an beacon");
-//                try {
-//                    beaconManager.stopRangingBeaconsInRegion(region);
-//                } catch (RemoteException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//
-//            @Override
-//            public void didDetermineStateForRegion(int state, Region region) {
-//                Log.i(TAG, "I have just switched from seeing/not seeing beacons: " + state);
-//            }
-//        });
+    public void iniciarExecucao(View view) {
+        View v1 = findViewById(R.id.view_configuracao);
+        View v2 = findViewById(R.id.view_execucao);
+        v1.setVisibility(View.GONE);
+        v2.setVisibility(View.VISIBLE);
+        beaconConsumer = new MeuBeaconConsumer(this);
+        beaconConsumer.iniciarExecucao();
+        mHandler = new Handler();
+        atualizacaoTela.run();
+//        consultarServidor.run();
+    }
 
-        beaconManager.addRangeNotifier(new RangeNotifier() {
-            @Override
-            public void didRangeBeaconsInRegion(Collection<Beacon> collection, Region region) {
-                final StringBuffer sb = new StringBuffer();
-                for (Beacon b : collection) {
-                    Log.d(TAG, "" + b.getId1());
-                    sb.append(b.getId1()).append("\n");
+    public void atualizarListaBeacons() {
+        final StringBuffer sb = new StringBuffer();
+
+        long tempo = System.currentTimeMillis();
+        List<String> beaconsRecentes = new ArrayList<>();
+        Map<String, Date> beaconMap = beaconConsumer.getBeaconMap();
+        for (String s : beaconMap.keySet()) {
+            Date d = beaconMap.get(s);
+            long diff = tempo - d.getTime();
+            diff = diff / 1000;
+            if (diff < 20d) {
+                beaconsRecentes.add(s);
+                if (diff < 1) {
+                    sb.append(s).append("\nVisto por último há menos de 1 segundo.\n\n");
+                } else if (diff == 1) {
+                    sb.append(s).append("\nVisto por ultimo há 1 segundo.\n\n");
+                } else {
+                    sb.append(s).append("\nVisto por ultimo há ").append(diff).append(" segundos.\n\n");
+
                 }
+            }
+        }
 
-                MainActivity.this.runOnUiThread(new Runnable() {
-                    public void run() {
-                        TextView tv = findViewById(R.id.tv_beacons_detectados);
-                        tv.setText(sb.toString());
-                    }
-                });
+        runOnUiThread(new Runnable() {
+            public void run() {
+                TextView tv = findViewById(R.id.tv_beacons_detectados);
+                if (sb.length() == 0) {
+                    tv.setText("Nenhum beacon recente.");
+                } else {
+                    tv.setText(sb.toString());
 
-
+                }
             }
         });
-
-        try {
-//            beaconManager.startMonitoringBeaconsInRegion(new Region("qualquerBeacon", null, null, null));
-
-            beaconManager.startRangingBeaconsInRegion(new Region("qualquerBeacon", null, null, null));
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
-        }
     }
 
-}
+    public void consultarInformacoesServidor(View v) {
+        long tempo = System.currentTimeMillis();
+        List<String> beaconsRecentes = new ArrayList<>();
+        Map<String, Date> beaconMap = beaconConsumer.getBeaconMap();
+        for (String s : beaconMap.keySet()) {
+            Date d = beaconMap.get(s);
+            long diff = tempo - d.getTime();
+            diff = diff / 1000;
+            if (diff < 20d) {
+                beaconsRecentes.add(s);
+            }
+        }
 
+        EditText et = findViewById(R.id.et_host_servidor);
+        String host = et.getText().toString();
+        et = findViewById(R.id.et_id_usuario);
+        Long idUsuario = Long.parseLong(et.getText().toString());
+
+        RequestQueue queue = Volley.newRequestQueue(this);
+        String url = "http://" + host + "/api/beacon/registrarBeaconsVistos";
+
+        JSONArray array = new JSONArray();
+        try {
+            for (String s : beaconsRecentes) {
+                JSONObject obj = new JSONObject();
+                obj.put("usuario", idUsuario);
+                obj.put("beacon", s);
+                array.put(obj);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        JsonArrayRequest request = new JsonArrayRequest(Request.Method.POST, url, array,
+                new Response.Listener<JSONArray>() {
+                    @Override
+                    public void onResponse(JSONArray response) {
+                        TextView mTextView = findViewById(R.id.tv_resposta_servidor);
+                        mTextView.setText(response.toString());
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                TextView mTextView = findViewById(R.id.tv_resposta_servidor);
+                mTextView.setText("Erro na comunicação com servidor!");
+            }
+        });
+        queue.add(request);
+    }
+
+    private Runnable atualizacaoTela = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                atualizarListaBeacons();
+            } finally {
+                mHandler.postDelayed(atualizacaoTela, 300);
+            }
+        }
+    };
+
+    private Runnable consultarServidor = new Runnable() {
+        @Override
+        public void run() {
+            try {
+//                consultarInformacoesServidor();
+            } finally {
+                mHandler.postDelayed(consultarServidor, 10000);
+            }
+        }
+    };
+}
